@@ -1,0 +1,489 @@
+package com.app.entity;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.OneToMany;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity
+@Getter
+@Setter
+@NoArgsConstructor
+public class Courses{
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long course_id;
+	private String courseName;
+	private double fees;
+	@OneToMany(cascade = CascadeType.ALL,mappedBy = "course",orphanRemoval = true)
+	private List<Student> sList = new ArrayList<>();
+	
+	public Courses(String courseName, double fees) {
+		super();
+		this.courseName = courseName;
+		this.fees = fees;
+	}
+	@Override
+	public String toString() {
+		return "Course [courseName=" + courseName + ", fees=" + fees + "]";
+	}
+	
+}
+
+
+package com.app.entity;
+
+import java.time.LocalDate;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.Table;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity
+@Getter
+@Setter
+@Table(name="stud")
+@NoArgsConstructor
+public class Student extends BaseEntity{
+
+	@Column(name="first_name",length=20)
+	private String firstName;
+	@Column(name="last_name",length=20)
+	private String lastName;
+	private LocalDate dob;
+	@Column(name="course_name",length=20)
+	private String courseName;
+	@ManyToOne
+	@JoinColumn(name="course_id")
+	private Courses course;
+	public Student(String firstName, String lastName, LocalDate dob, String courseName) {
+		super();
+		this.firstName = firstName;
+		this.lastName = lastName;
+		this.dob = dob;
+		this.courseName = courseName;
+	}
+	@Override
+	public String toString() {
+		return "Student [firstName=" + firstName + ", lastName=" + lastName + ", dob=" + dob + ", courseName="
+				+ courseName + "]";
+	}
+	
+	
+	
+	
+}
+===
+controller:
+
+package com.app.controller;
+
+import javax.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.app.dto.CourseRequestDto;
+import com.app.dto.CourseUpdateDto;
+import com.app.service.CourseService;
+
+@RestController
+@RequestMapping("/course")
+public class CourseController {
+
+	@Autowired
+	private CourseService courseServ;
+	
+	
+	@GetMapping
+	public ResponseEntity<?> getAllCourse(){
+		return ResponseEntity.status(HttpStatus.OK).body(courseServ.getAllCourses());
+	}
+	@PostMapping("/add")
+	public ResponseEntity<?> addCourse(@RequestBody @Valid  CourseRequestDto c){
+		return ResponseEntity.status(HttpStatus.OK).body(courseServ.addCourse(c));
+	}
+	
+	@PutMapping("/update/{id}")
+	public ResponseEntity<?> updateCourse(@PathVariable Long id,@RequestBody CourseUpdateDto c){
+		c.setCourse_id(id);
+		return ResponseEntity.status(HttpStatus.OK).body(courseServ.updateCourse(c));
+	}
+	
+	@DeleteMapping("/delete/{id}")
+	public ResponseEntity<?> deleteCourse(@PathVariable Long id){
+		return ResponseEntity.status(HttpStatus.OK).body(courseServ.deleteCourse(id));
+	}
+}
+---
+package com.app.controller;
+
+import javax.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.app.dto.StudentRequestDto;
+import com.app.dto.StudentUpdateDto;
+import com.app.service.StudentService;
+
+@RestController
+@RequestMapping("/student")
+public class StudentController {
+
+	@Autowired
+	private StudentService studServ;
+	
+	@GetMapping
+	public ResponseEntity<?> getAllStudents(){
+		return ResponseEntity.status(HttpStatus.OK).body(studServ.getAllStudent());
+	}
+	@PostMapping("/add")
+	public ResponseEntity<?> addStudent(@RequestBody @Valid  StudentRequestDto stud){
+		return ResponseEntity.status(HttpStatus.OK).body(studServ.addStudent(stud));
+	}
+	@PutMapping("/update/{id}")
+	public ResponseEntity<?> updateStudent(@PathVariable Long id,@RequestBody StudentUpdateDto stud){
+		stud.setId(id);
+		return ResponseEntity.status(HttpStatus.OK).body(studServ.updateStudent(stud));
+	}
+	
+	@GetMapping("/{course_id}")
+	public ResponseEntity<?> getByCourse(@PathVariable Long course_id)
+	{
+		StudentRequestDto dto = new StudentRequestDto();
+		dto.setCourse_id(course_id);
+		return ResponseEntity.status(HttpStatus.OK).body(studServ.findByCourse(dto));
+		
+	}
+	
+}
+===
+repo
+package com.app.repository;
+
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.app.entity.Courses;
+import com.app.entity.Student;
+
+public interface StudentRepository extends JpaRepository<Student, Long>{
+
+	List<Student> findByCourse(Courses c);
+	
+}
+
+package com.app.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.app.entity.Courses;
+
+public interface CourseRepository extends JpaRepository<Courses,Long>{
+
+}
+==
+dto
+package com.app.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+public class ApiResponse {
+
+	private String msg;
+	
+}
+--
+package com.app.dto;
+
+import javax.validation.constraints.NotBlank;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+public class CourseRequestDto {
+	@NotBlank
+	private String courseName;
+	private double fees;
+}
+--
+package com.app.dto;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+public class CourseResponseDto {
+
+	private Long course_id;
+	private String courseName;
+	private double fees;
+	
+}
+--
+package com.app.dto;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+public class CourseUpdateDto {
+
+	private Long course_id;
+	private String courseName;
+	private double fees;
+	
+}
+---
+package com.app.dto;
+
+import java.time.LocalDate;
+
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+@Getter
+@Setter
+@NoArgsConstructor
+public class StudentRequestDto {
+	@NotBlank(message = "Name column cannot be blank")
+	private String firstName;
+	private String lastName;
+	@NotNull
+	private LocalDate dob;
+	private String courseName;
+	private Long course_id;
+}
+---
+package com.app.dto;
+
+import java.time.LocalDate;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+public class StudentResponseDto {
+
+	private Long id;
+	private String firstName;
+	private String lastName;
+	private LocalDate dob;
+	private String courseName;
+	private Long course_id;
+	
+}
+----
+package com.app.dto;
+
+import java.time.LocalDate;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+@Getter
+@Setter
+@NoArgsConstructor
+public class StudentUpdateDto {
+
+	private Long id;
+	private String firstName;
+	private String lastName;
+	private LocalDate dob;
+	private String courseName;
+	private Long course_id;
+	
+}
+==
+serv impl:
+
+package com.app.service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.app.dto.ApiResponse;
+import com.app.dto.CourseRequestDto;
+import com.app.dto.CourseResponseDto;
+import com.app.dto.CourseUpdateDto;
+import com.app.entity.Courses;
+import com.app.exception.CustomException;
+import com.app.repository.CourseRepository;
+@Service
+@Transactional
+public class CourseServiceImpl implements CourseService {
+
+	@Autowired
+	private CourseRepository courseRepo;
+	@Autowired
+	private ModelMapper mapper;
+	
+	@Override
+	public List<CourseResponseDto> getAllCourses() {
+		List<Courses> c = courseRepo.findAll(); 
+		List<CourseResponseDto> dto = new ArrayList<>();
+		c.forEach((v)->{dto.add(mapper.map(v,CourseResponseDto.class));});
+		return dto;
+	}
+
+	@Override
+	public ApiResponse addCourse(CourseRequestDto course) {
+		Courses c = new Courses(course.getCourseName(),course.getFees());
+		courseRepo.save(c);
+		return new ApiResponse("Course added");
+	}
+
+	@Override
+	public ApiResponse updateCourse(CourseUpdateDto course) {
+		Courses c = new Courses(course.getCourseName(), course.getFees());
+		c.setCourse_id(course.getCourse_id());
+		courseRepo.save(c);
+		return new ApiResponse("Course updated");
+	}
+
+	@Override
+	public ApiResponse deleteCourse(Long id) {
+		Courses c = courseRepo.findById(id).orElseThrow(()->new CustomException("Course not found"));
+		courseRepo.delete(c);
+		return new ApiResponse("Course deleted");
+	}
+
+}
+--
+package com.app.service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.app.dto.ApiResponse;
+import com.app.dto.StudentRequestDto;
+import com.app.dto.StudentResponseDto;
+import com.app.dto.StudentUpdateDto;
+import com.app.entity.Courses;
+import com.app.entity.Student;
+import com.app.exception.CustomException;
+import com.app.repository.CourseRepository;
+import com.app.repository.StudentRepository;
+
+@Service
+@Transactional
+public class StudentServiceImpl implements StudentService {
+
+	@Autowired
+	private StudentRepository studentRepo;
+
+	@Autowired
+	private ModelMapper mapper;
+
+	@Autowired
+	private CourseRepository courseRepo;
+
+	@Override
+	public List<StudentResponseDto> getAllStudent() {
+
+		List<StudentResponseDto> dto = new ArrayList<>();
+		studentRepo.findAll().forEach((v) -> {
+			System.out.println(v);
+			dto.add(mapper.map(v, StudentResponseDto.class));
+		});
+
+		return dto;
+	}
+
+	@Override
+	public ApiResponse addStudent(StudentRequestDto stud) {
+		Student student = new Student(stud.getFirstName(), stud.getLastName(), stud.getDob(), stud.getCourseName());
+		courseRepo.findById(stud.getCourse_id()).map((course) -> {
+			student.setCourse(course);
+			return studentRepo.save(student);
+		}).orElseThrow(() -> new CustomException("Student cannot be added"));
+		return new ApiResponse("Student added");
+	}
+
+	@Override
+	public ApiResponse updateStudent(StudentUpdateDto stud) {
+		Student student = new Student(stud.getFirstName(), stud.getLastName(), stud.getDob(), stud.getCourseName());
+		student.setId(stud.getId());
+		courseRepo.findById(stud.getCourse_id()).map((course) -> {
+			student.setCourse(course);
+			return studentRepo.save(student);
+		}).orElseThrow(() -> new CustomException("Student cannot be added"));
+		return new ApiResponse("Student Updated");
+	}
+
+	@Override
+	public List<StudentResponseDto> findByCourse(StudentRequestDto stud) {
+		Courses c = courseRepo.findById(stud.getCourse_id()).orElseThrow(()->new CustomException("Course  not found"));
+		List<StudentResponseDto> dto = new ArrayList<>();
+		studentRepo.findByCourse(c).forEach((v)->{dto.add(mapper.map(v,StudentResponseDto.class));});;
+		return dto;
+	}
+
+}
