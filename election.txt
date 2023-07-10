@@ -1,0 +1,336 @@
+package com.app.entities;
+
+import java.time.LocalDate;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
+import javax.validation.constraints.Email;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.Past;
+import javax.validation.constraints.Pattern;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Entity
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@ToString(exclude = "password")
+public class Voter extends BaseEntity{
+	
+	
+	private String voterName;
+	
+	private String city;
+	
+	@Column(unique = true)
+	@Email
+	private String email;
+	
+	@Min(18)
+	private Integer age;
+	
+	@Pattern(regexp = "^(?=.*[0-9])(?=.*[@#$%&])[a-zA-Z0-9@#$%&]{5,10}$")
+	private String password;
+	
+	@Enumerated(EnumType.STRING)
+	private Gender gender;
+	
+	@Past
+	private LocalDate dob;
+	
+	private Boolean votingStatus;	
+
+}
+--
+package com.app.entities;
+
+public enum Gender {
+	
+	MALE, FEMALE, TRANSGENDER;
+
+}
+--
+package com.app.entities;
+
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.MappedSuperclass;
+
+import lombok.Getter;
+import lombok.Setter;
+
+@MappedSuperclass
+@Getter
+@Setter
+public class BaseEntity {
+	
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Integer id;
+
+}
+==
+controller:
+package com.app.controllers;
+
+import java.util.List;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.app.DTOs.ReqVoterDTO;
+import com.app.DTOs.RespVoterDTO;
+import com.app.entities.Voter;
+import com.app.service.VoterServiceIF;
+
+@RestController
+@RequestMapping("/voters")
+@CrossOrigin(origins = "http://localhost:3000")
+public class VoterController {
+	
+	@Autowired
+	private VoterServiceIF voterServiceInstance;
+	
+
+	@PostMapping("/newvoter")
+	public Voter addNewVoter(@RequestBody Voter newVoter) {
+		
+		Voter insertedVoter = voterServiceInstance.insertNewVoter(newVoter);
+		
+		return insertedVoter;
+	}
+	
+	@GetMapping
+	public List<Voter> getVotersList(){
+		
+		List<Voter> votersList = voterServiceInstance.getVotersList();
+		
+		return votersList;
+	}
+	
+	@PutMapping("/updatevoter")
+	public Voter updateV(@RequestBody Voter voter) {
+		
+		Voter updateVoter = voterServiceInstance.updateVoter(voter);
+		
+		return updateVoter;
+	}
+	
+	@DeleteMapping("/deletevoter/{voterID}")
+	public String deleteV(@PathVariable Integer voterID) {
+		
+		String deletionStatus = voterServiceInstance.deleteVoter(voterID);
+		
+		return deletionStatus;
+	}
+	
+	@PostMapping("/authenticate")
+	public RespVoterDTO authentication(@RequestBody ReqVoterDTO reqvoterDTO) {
+		
+		RespVoterDTO mappedRespVoterDTO = voterServiceInstance.authenticateVoter(reqvoterDTO);
+		
+		return mappedRespVoterDTO;		
+	} 
+
+}
+==
+dto:
+package com.app.DTOs;
+
+import java.time.LocalDateTime;
+
+import lombok.Setter;
+
+import lombok.Getter;
+
+@Getter
+@Setter
+public class APIResponse {
+	
+	private String msg;
+	
+	private LocalDateTime timeStamp;
+	
+	public APIResponse(String msg) {
+		
+		this.msg = msg;
+		this.timeStamp = LocalDateTime.now();
+	}
+}
+--
+package com.app.DTOs;
+
+import javax.validation.constraints.Min;
+import javax.validation.constraints.Pattern;
+
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
+public class ReqVoterDTO {
+
+	private String email;
+
+	private String password;
+
+}
+--
+package com.app.DTOs;
+
+import java.time.LocalDate;
+
+import javax.persistence.Column;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
+import javax.validation.constraints.Email;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.Past;
+import javax.validation.constraints.Pattern;
+
+import com.app.entities.Gender;
+
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
+public class RespVoterDTO {
+
+    private String voterName;
+	
+	private String city;
+		
+	private Boolean votingStatus;
+	
+	private String msg;
+	
+}
+==
+repo:
+package com.app.repository;
+
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.app.entities.Voter;
+
+public interface VoterRepoIF extends JpaRepository<Voter, Integer> {
+
+	Optional<Voter> findByEmailAndPassword(String email, String password);
+}
+==
+serv impl:
+package com.app.service;
+
+import java.util.List;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.app.DTOs.ReqVoterDTO;
+import com.app.DTOs.RespVoterDTO;
+import com.app.entities.Voter;
+import com.app.exceptions.ResourceNotFoundException;
+import com.app.repository.VoterRepoIF;
+
+@Service
+@Transactional
+public class VoterServiceImpl implements VoterServiceIF {
+
+	@Autowired
+	private VoterRepoIF voterRepoInstance;
+	
+	@Autowired
+	private ModelMapper mapper;
+
+	@Override
+	public Voter insertNewVoter(Voter newVoter) {
+
+		Voter addedVoter = voterRepoInstance.save(newVoter);
+
+		return addedVoter;
+	}
+
+	@Override
+	public List<Voter> getVotersList() {
+
+		List<Voter> votersList = voterRepoInstance.findAll();
+
+		return votersList;
+	}
+
+	@Override
+	public Voter updateVoter(Voter voter) {
+
+		Voter updatedVoter = voterRepoInstance.save(voter);
+
+		return updatedVoter;
+	}
+
+	@Override
+	public String deleteVoter(Integer voterID) {
+
+		String msg = "Voter Deletion Failed Miserably, Boss !";
+
+		if (voterRepoInstance.existsById(voterID)) {
+		
+			voterRepoInstance.deleteById(voterID);
+			msg = "Voter Deleted Succesfully, Boss !";
+		}
+		
+		return msg;
+	}
+
+	@Override
+	public RespVoterDTO authenticateVoter(ReqVoterDTO reqvoterDTO) {
+		
+		Voter foundVoter = voterRepoInstance
+				.findByEmailAndPassword(reqvoterDTO.getEmail(), reqvoterDTO.getPassword())
+				.orElseThrow(() -> new ResourceNotFoundException("Invalid Email / Password, Boss !"));
+		
+		RespVoterDTO mappedRespDTO = mapper.map(foundVoter, RespVoterDTO.class);
+		
+		String msg = "XXX";
+		
+		if(foundVoter.getVotingStatus()) {
+			
+			msg = "Hello, " +foundVoter.getVoterName()+ " : You've Voted Succesfully ! Thank You !";
+			mappedRespDTO.setMsg(msg);
+			
+		}else{
+			
+			msg = "Hello, " +foundVoter.getVoterName()+ " : You've Not Voted Yet, Boss. Please Vote !";
+			mappedRespDTO.setMsg(msg);
+		}
+		
+		
+		return mappedRespDTO;
+	}
+
+	
+	
+}
+==
+custom except:
