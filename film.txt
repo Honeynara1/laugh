@@ -1,0 +1,330 @@
+package com.app.entities;
+
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.MappedSuperclass;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@MappedSuperclass
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+public class BaseEntity {
+@Id
+@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Integer id;
+}
+--
+package com.app.entities;
+
+import java.time.LocalDate;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
+import javax.persistence.ManyToOne;
+import javax.validation.constraints.Past;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Entity
+@Getter
+@Setter
+@NoArgsConstructor
+@ToString
+public class Film extends BaseEntity {
+	@Column(unique=true)
+	private String filmName;
+	private double price;
+	@Past
+	private LocalDate releaseDate;
+	@Enumerated(EnumType.STRING)
+	private Rating rating;
+	@ManyToOne
+	private Producer producerId;
+	public Film(String filmName, double price, @Past LocalDate releaseDate, Rating rating) {
+		super();
+		this.filmName = filmName;
+		this.price = price;
+		this.releaseDate = releaseDate;
+		this.rating = rating;
+	}
+	
+	
+}
+--
+package com.app.entities;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.OneToMany;
+import javax.validation.constraints.Email;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.Past;
+import javax.validation.constraints.Pattern;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreType;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Entity
+@Getter
+@Setter
+@NoArgsConstructor
+@ToString(exclude="password")
+@JsonIgnoreType
+public class Producer extends BaseEntity {
+	@Column(unique=true)
+	private String producerName;
+	@Min(20)
+	private int age;
+	@Email
+	private String email;
+	@Pattern(regexp = "^(?=.*[0-9])(?=.*[!@#$%&])[a-zA-Z0-9!@#$%&]{6,12}$")
+	private String password;
+	@Past
+	private LocalDate dob;
+	
+	@OneToMany(mappedBy="producerId",fetch = FetchType.EAGER)
+	List<Film> filmList=new ArrayList<>();
+
+	public Producer(String producerName, @Min(20) int age, @Email String email,
+			@Pattern(regexp = "^(?=.*[0-9])(?=.*[!@#$%&])[a-zA-Z0-9!@#$%&]{6,12}$") String password,
+			@Past LocalDate dob) {
+		super();
+		this.producerName = producerName;
+		this.age = age;
+		this.email = email;
+		this.password = password;
+		this.dob = dob;
+	}
+	
+	public void addFilm(Film f) {
+		filmList.add(f);
+		f.setProducerId(this);
+	}
+}
+---
+package com.app.entities;
+
+public enum Rating {
+	BAD,POOR,HIT,SUPERHIT,BLOCKBUSTER;
+}
+===
+cont:
+package com.app.controller;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.app.dto.FilmReqDto;
+import com.app.dto.FilmUpdationDto;
+import com.app.entities.Film;
+import com.app.services.FilmService;
+
+@RestController
+@RequestMapping("/films")
+public class FilmController {
+	@Autowired
+	private FilmService service;
+	
+	@GetMapping("/details")
+	public List<Film> details(){
+		return service.getDetails();
+	}
+	
+	@PostMapping("/insert")
+	public Film insert(@RequestBody FilmReqDto req) {
+		Film insertFilm = service.insertFilm(req);
+	return insertFilm;
+	}
+	
+	@PutMapping("/update")
+	public Film update(@RequestBody FilmUpdationDto f) {
+		return service.updateFilm(f);
+	}
+	
+	@DeleteMapping("/delete/{id}")
+	public String delete(@PathVariable Integer id) {
+		return service.deleteFilm(id);
+	}
+}
+===
+serv imp:
+package com.app.services;
+
+import java.util.List;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.app.dto.FilmReqDto;
+import com.app.dto.FilmUpdationDto;
+import com.app.entities.Film;
+import com.app.entities.Producer;
+import com.app.exception.ResourceNotFoundException;
+import com.app.repository.FilmRepository;
+import com.app.repository.ProducerRepostiroy;
+
+@Service
+@Transactional
+public class FilmServiceImpl implements FilmService{
+	
+	@Autowired
+	private FilmRepository repo;
+	
+	@Autowired
+	private ModelMapper mapper;
+	
+	@Autowired
+	private ProducerRepostiroy prodRepo; 
+	@Override
+	public List<Film> getDetails() {
+		// TODO Auto-generated method stub
+		return repo.findAll();
+	}
+
+	@Override
+	public Film insertFilm(FilmReqDto req) {
+		int id = req.getPid();
+		Producer prod=prodRepo.findById(id).orElseThrow(()->new ResourceNotFoundException("Invalid Producer"));
+		Film newFilm=mapper.map(req, Film.class);
+		prod.addFilm(newFilm);
+		repo.save(newFilm);
+		return newFilm;
+	}
+
+	@Override
+	public Film updateFilm(FilmUpdationDto f) {
+		int filmId=f.getId();
+		Film updatedFilm = repo.findById(filmId).orElseThrow(()->new ResourceNotFoundException("Can't update film"));
+		updatedFilm.setFilmName(f.getFilmName());
+		updatedFilm.setPrice(f.getPrice());
+		updatedFilm.setRating(f.getRating());
+		updatedFilm.setReleaseDate(f.getReleaseDate());
+		Film update = repo.save(updatedFilm);
+		return update;
+	}
+
+	@Override
+	public String deleteFilm(Integer id) {
+		String msg="Can't Delete";
+		if(repo.existsById(id)) {
+			repo.deleteById(id);
+			msg="Deleted Succesfully";
+		}
+		return msg;
+	}
+	
+	
+
+}
+---
+package com.app.services;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@Transactional
+public class ProducerServiceImpl implements ProducerService {
+
+}
+===
+repo:
+package com.app.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.app.entities.Film;
+
+public interface FilmRepository extends JpaRepository<Film, Integer> {
+
+}
+--
+package com.app.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.app.entities.Producer;
+
+public interface ProducerRepostiroy extends JpaRepository<Producer, Integer> {
+
+}
+===
+dto
+package com.app.dto;
+
+import java.time.LocalDate;
+
+import com.app.entities.Rating;
+
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+
+@Getter
+@Setter
+@ToString
+public class FilmReqDto {
+	private String filmName;
+	private double price;
+	private LocalDate releaseDate;
+	private Rating rating;
+	private Integer pid;
+}
+--
+package com.app.dto;
+
+import java.time.LocalDate;
+
+import com.app.entities.Rating;
+
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+
+@Getter
+@Setter
+@ToString
+public class FilmUpdationDto {
+	private Integer id;
+	private String filmName;
+	private double price;
+	private LocalDate releaseDate;
+	private Rating rating;
+	private Integer pid;
+}
+==
