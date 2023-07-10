@@ -1,0 +1,455 @@
+package com.app.entities;
+
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.MappedSuperclass;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreType;
+@MappedSuperclass
+@JsonIgnoreType
+public class BaseEntity {
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
+
+	public Long getId() {
+		return id;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
+	
+}
+--
+package com.app.entities;
+
+public enum AccountType {
+	DEMAT,SAVING,LOAN,CURRENT
+
+}
+--
+package com.app.entities;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
+
+@Entity
+public class Bank extends BaseEntity{
+	@Column(name = "first_name",length = 10)
+	private String firstName;
+	@Column(name = "last_name",length = 10)
+	private String lastName;
+	@Column(length = 50)
+	private String email;
+	private String password;
+	@Enumerated(EnumType.STRING)
+	private AccountType type;
+	
+	public Bank() {
+		
+	}
+	public Bank(String firstName, String lastName, String email, String password, AccountType type) {
+		super();
+		this.firstName = firstName;
+		this.lastName = lastName;
+		this.email = email;
+		this.password = password;
+		this.type = type;
+	}
+	public String getFirstName() {
+		return firstName;
+	}
+	public void setFirstName(String firstName) {
+		this.firstName = firstName;
+	}
+	public String getLastName() {
+		return lastName;
+	}
+	public void setLastName(String lastName) {
+		this.lastName = lastName;
+	}
+	public String getEmail() {
+		return email;
+	}
+	public void setEmail(String email) {
+		this.email = email;
+	}
+	public String getPassword() {
+		return password;
+	}
+	public void setPassword(String password) {
+		this.password = password;
+	}
+	public AccountType getType() {
+		return type;
+	}
+	public void setType(AccountType type) {
+		this.type = type;
+	}
+	@Override
+	public String toString() {
+		return "Bank [firstName=" + firstName + ", lastName=" + lastName + ", email=" + email + ", type=" + type + "]";
+	}
+	
+	
+	
+
+}
+===
+cont:
+package com.app.controller;
+
+import java.util.List;
+
+import javax.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.app.dto.ApiResponse;
+import com.app.dto.BankDTO;
+import com.app.dto.signInDTO;
+import com.app.entities.AccountType;
+import com.app.entities.Bank;
+import com.app.service.BankService;
+
+@RestController
+@RequestMapping("/xyz")
+public class BankController {
+
+	@Autowired
+	private BankService bankService;
+	public BankController() {
+		System.out.println("in constr of"+getClass());
+	}
+	@GetMapping
+	public List<Bank> getAllBank(){
+		return bankService.getBankDetails();	
+	}
+	@PostMapping
+	public BankDTO signUp(@RequestBody @Valid BankDTO bank) {
+		return bankService.AddingNew(bank);
+	}
+	
+	@PutMapping("/update")
+	public BankDTO update(@RequestBody @Valid BankDTO bnk) {
+		return bankService.updateDetails(bnk);
+		
+	}
+	@DeleteMapping("/{id}")
+	public ApiResponse deleteBank(@PathVariable Long id) {
+		return new ApiResponse(bankService.delete(id));
+		
+	}
+	@GetMapping("/{id}")
+	public Bank getDetailsByID(@PathVariable Long id) {
+		return bankService.getDetailsByID(id);
+	}
+	@PostMapping("/signIn")
+	public ResponseEntity<?> signInBank(@RequestBody @Valid signInDTO dt) {
+		return new ResponseEntity<>(bankService.signInBank(dt), HttpStatus.OK);
+	}
+	@GetMapping("/bank/{type}")
+	public List<Bank> getTypeDetails(@PathVariable String type){
+		return bankService.getByTypesDetail(AccountType.valueOf(type.toUpperCase()));
+		
+	}
+	
+	@GetMapping("/banks/{fname}")
+	public List<Bank> getFirstNameDetails(@PathVariable String fname){
+		return bankService.getDetailsByName(fname);
+	}
+	
+	
+	
+}
+==
+srv impl:
+package com.app.service;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.validation.Valid;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.app.custom_exception.ResourceNotFoundException;
+import com.app.dto.BankDTO;
+import com.app.dto.signInDTO;
+import com.app.entities.AccountType;
+import com.app.entities.Bank;
+import com.app.repository.BankRepository;
+@Service
+@Transactional
+public class BankServiceImpl implements BankService{
+	@Autowired
+	private BankRepository bankRepo;
+	@Autowired
+	private ModelMapper mapper;
+	@Override
+	public List<Bank> getBankDetails() {
+		// TODO Auto-generated method stub
+		return bankRepo.findAll();
+	}
+	@Override
+	public BankDTO AddingNew(@Valid BankDTO bank) {
+		Bank bnk=mapper.map(bank, Bank.class);
+		return mapper.map(bankRepo.save(bnk), BankDTO.class);
+	}
+	@Override
+	public BankDTO updateDetails(@Valid BankDTO bnk) {
+		Bank bank=mapper.map(bnk, Bank.class);
+		return mapper.map(bankRepo.save(bank), BankDTO.class);
+	}
+	@Override
+	public String delete(Long id) {
+		String message="Deletion failed";
+		if(bankRepo.existsById(id)) {
+			bankRepo.deleteById(id);
+			message="Deletion Successfully";
+		}
+		return message;
+	}
+	@Override
+	public Bank getDetailsByID(Long id) {
+		
+		//return bankRepo.findById(id).orElseThrow(()->new ResourceNotFoundException("bank with given id is not present"));
+		return bankRepo.findById(id).orElseThrow(()->new ResourceNotFoundException("not present by given id"));
+	}
+	@Override
+	public BankDTO signInBank(signInDTO dt) {
+		Bank bk=bankRepo.findByEmailAndPassword(dt.getEmail(), dt.getPassword())
+				.orElseThrow(()->new ResourceNotFoundException("not present"));
+		return mapper.map(bk, BankDTO.class);
+	}
+	@Override
+	public List<Bank> getByTypesDetail(AccountType typ) {
+			
+		return bankRepo.findByType(typ);
+	}
+	@Override
+	public List<Bank> getDetailsByName(String nm) {
+		// TODO Auto-generated method stub
+		return bankRepo.findByFirstName(nm);
+	}
+	
+	
+	
+	
+	
+
+}
+==
+repo:
+package com.app.repository;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.app.entities.AccountType;
+import com.app.entities.Bank;
+
+public interface BankRepository extends JpaRepository<Bank, Long>{
+	Optional<Bank> findByEmailAndPassword(String em,String pass);
+	
+	List<Bank> findByType(AccountType typ);
+	List<Bank> findByFirstName(String nm);
+
+}
+==
+dto:
+package com.app.dto;
+
+import java.time.LocalDateTime;
+
+public class ApiResponse {
+	
+	private String message;
+	private LocalDateTime timestamp;
+	
+	public ApiResponse(String message) {
+		this.message=message;
+		this.timestamp=LocalDateTime.now();
+	}
+
+	public String getMessage() {
+		return message;
+	}
+
+	public void setMessage(String message) {
+		this.message = message;
+	}
+
+	public LocalDateTime getTimestamp() {
+		return timestamp;
+	}
+
+	public void setTimestamp(LocalDateTime timestamp) {
+		this.timestamp = timestamp;
+	}
+
+}
+--
+package com.app.dto;
+import javax.validation.constraints.Email;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Pattern;
+import javax.validation.constraints.Size;
+
+import com.app.entities.AccountType;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonProperty.Access;
+
+public class BankDTO {
+	private Long id;
+	@NotBlank(message = "name should not be blank")
+	private String firstName;
+	@NotBlank(message = "last name is compulsory")
+	private String lastName;
+	@Email
+	@NotBlank(message = "cannot be blank")
+	private String email;
+	@Pattern(regexp = "((?=.*\\d)(?=.*[a-z])(?=.*[@#$%&]).{6,10})",message = "cannot be blank")
+	private String password;
+	private AccountType type;
+	public Long getId() {
+		return id;
+	}
+	public void setId(Long id) {
+		this.id = id;
+	}
+	public String getFirstName() {
+		return firstName;
+	}
+	public void setFirstName(String firstName) {
+		this.firstName = firstName;
+	}
+	public String getLastName() {
+		return lastName;
+	}
+	public void setLastName(String lastName) {
+		this.lastName = lastName;
+	}
+	public String getEmail() {
+		return email;
+	}
+	public void setEmail(String email) {
+		this.email = email;
+	}
+	public String getPassword() {
+		return password;
+	}
+	public void setPassword(String password) {
+		this.password = password;
+	}
+	public AccountType getType() {
+		return type;
+	}
+	public void setType(AccountType type) {
+		this.type = type;
+	}
+	@Override
+	public String toString() {
+		return "BankDTO [id=" + id + ", firstName=" + firstName + ", lastName=" + lastName + ", email=" + email
+				+ ", password=" + password + ", type=" + type + "]";
+	}
+	
+	
+}
+
+---
+package com.app.dto;
+
+import javax.validation.constraints.Email;
+import javax.validation.constraints.NotBlank;
+
+public class signInDTO {
+	
+	@Email
+	private String email;
+	@NotBlank(message = "password is required")
+	private String password;
+	public String getEmail() {
+		return email;
+	}
+	public void setEmail(String email) {
+		this.email = email;
+	}
+	public String getPassword() {
+		return password;
+	}
+	public void setPassword(String password) {
+		this.password = password;
+	}
+	
+
+}
+===
+
+
+
+
+
+
+
+
+
+
+
+===
+global excep: not needed:
+package com.app.exception_handler;
+
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import com.app.custom_exception.ResourceNotFoundException;
+import com.app.dto.ApiResponse;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	public ResponseEntity<?> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+		Map<String,String> maps=e.getFieldErrors()
+				.stream()
+				.collect(Collectors.toMap(n->n.getField(), n->n.getDefaultMessage()));
+		return new ResponseEntity<>(maps, HttpStatus.BAD_REQUEST);
+	}
+	
+	@ExceptionHandler(ResourceNotFoundException.class)
+	public ResponseEntity<?> handleResourceNotFoundException(ResourceNotFoundException e){
+		return new ResponseEntity<>(new ApiResponse(e.getMessage()), HttpStatus.NOT_FOUND);
+	}
+	@ExceptionHandler(Exception.class)
+	public ResponseEntity<?> handleException(Exception e){
+	
+		return new ResponseEntity<>(new ApiResponse(e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
+	}
+
+}
+==
