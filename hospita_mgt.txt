@@ -1,0 +1,480 @@
+
+enitity
+package com.app.entities;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.OneToMany;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreType;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@JsonIgnoreType
+public class Hospital extends BaseEntity{
+
+	@Column(name="h_name",unique=true)
+	private String hospitalName;
+	
+	private String hospitalAdress;
+	
+	@Column(name="email",nullable=false)
+	private String email;
+	private String password;
+	
+	@OneToMany(mappedBy="allocatedHospital",cascade = CascadeType.ALL,orphanRemoval = true,fetch = FetchType.EAGER)
+	List<Patient> patients=new ArrayList<Patient>();
+	
+	public void addPatient(Patient p) 
+	{
+		patients.add(p);
+		p.setAllocatedHospital(this);
+		
+	}
+	
+	public void delPatient(Patient p) 
+	{
+		patients.remove(patients.indexOf(p));
+		p.setAllocatedHospital(null);
+	}
+}
+
+
+
+package com.app.entities;
+
+import java.util.List;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreType;
+
+//import org.hibernate.annotations.ManyToAny;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Entity
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+@JsonIgnoreType
+public class Patient extends BaseEntity {
+
+	@Column(name="p_name",length=20)
+	private String patientName;
+	@Column(length=10)
+	private Long mobNumber;
+	
+	@ManyToOne
+	@JoinColumn(name="hosp_id")
+	private Hospital allocatedHospital;
+}
+
+=====
+contollers
+package com.app.controller;
+
+import javax.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.app.dtos.HospitalReqDto;
+import com.app.service.HospitalService;
+
+//import io.swagger.v3.oas.annotations.parameters.RequestBody;
+
+@RestController
+@RequestMapping("/hospital")
+@Validated
+public class HospitalController {
+
+	@Autowired
+	private HospitalService hospitalService;
+	
+	//insert hospital
+	@PostMapping
+	public ResponseEntity<?> addHospital(@RequestBody @Valid HospitalReqDto reDto)
+	{
+		return ResponseEntity.status(HttpStatus.OK).body(hospitalService.insertHospital(reDto));
+	}
+}
+====
+
+package com.app.controller;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+//import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import com.app.dtos.AoiRespone;
+import com.app.dtos.PatientReqDto;
+import com.app.dtos.PatientUpdDto;
+import com.app.service.PatientService;
+
+@RestController
+@RequestMapping("/hospital/patient")
+public class PatientController {
+
+	@Autowired
+	private PatientService pService;
+	
+	
+	public PatientController() {
+		
+	}
+
+	@PostMapping
+	public ResponseEntity<?> addPatient(@RequestBody PatientReqDto pdato)
+	{
+		return ResponseEntity.status(HttpStatus.OK).body(pService.addPatient(pdato));
+	}
+	
+	@GetMapping
+	public ResponseEntity<?> getPatients()
+	{
+		return ResponseEntity.status(HttpStatus.OK).body(pService.getAllPatients());
+	}
+	
+	@PutMapping
+	public ResponseEntity<?> updatePatient(@RequestBody PatientUpdDto uDto)
+	{
+		return ResponseEntity.status(HttpStatus.OK).body(new AoiRespone(pService.upadtePatDet(uDto)));
+	}
+	
+	@DeleteMapping("/{id}")
+	public ResponseEntity<?> delPatient(@PathVariable Long id)
+	{
+		return ResponseEntity.status(HttpStatus.OK).body(new AoiRespone(pService.deletePat(id)));
+	}
+}
+==================
+dtos:
+
+package com.app.dtos;
+
+import java.time.LocalDateTime;
+
+public class AoiRespone {
+
+	private String msg;
+	private LocalDateTime stamp;
+	
+	public AoiRespone(String msg) {
+		
+		this.msg = msg;
+		this.stamp = LocalDateTime.now();
+	}
+
+	public String getMsg() {
+		return msg;
+	}
+
+	public void setMsg(String msg) {
+		this.msg = msg;
+	}
+	
+	
+}
+====
+package com.app.dtos;
+
+import javax.validation.constraints.NotBlank;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+public class HospitalReqDto {
+
+	
+    private String hospitalName;
+	private String hospitalAdress;
+	private String email;
+	private String password;
+	
+}
+=====
+
+package com.app.dtos;
+
+import javax.validation.constraints.Email;
+import javax.validation.constraints.Pattern;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+public class HospitalSignUpDto {
+
+	@Email
+	private String email;
+	@Pattern(regexp = "")
+	private String password;
+}
+======
+package com.app.dtos;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+public class PatientReqDto {
+
+	private String patientName;
+	private Long mobNumber;
+	private String hospitalName;
+}
+====
+package com.app.dtos;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+public class PatientRespDto {
+
+	private String patientName;
+	private Long mobNumber;
+	private String hospitalName;
+	private String hospitalAdress;
+	private Long hospitalId;
+	private Long patientId;
+}
+===
+package com.app.dtos;
+
+import javax.validation.constraints.Max;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+public class PatientUpdDto {
+
+	@Max(100)
+	private Long id;
+	
+	private String patientName;
+	private Long mobNumber;
+}
+====
+repo:
+package com.app.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.app.entities.Hospital;
+
+public interface HospitalRepo extends JpaRepository<Hospital, Long>{
+
+	Hospital findByHospitalName(String name);
+}
+
+
+
+package com.app.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.app.entities.Hospital;
+import com.app.entities.Patient;
+
+public interface PatientRepo extends JpaRepository<Patient, Long> {
+
+	
+}
+====
+serv impl:
+
+package com.app.service;
+
+import javax.transaction.Transactional;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.app.dtos.HospitalReqDto;
+import com.app.entities.Hospital;
+import com.app.repository.HospitalRepo;
+
+@Service
+@Transactional
+public class HospitalServiceImpl implements HospitalService{
+
+	@Autowired
+	private HospitalRepo hospRepo;
+	
+	@Autowired
+	private ModelMapper mapper;
+	
+	@Override
+	public Hospital insertHospital(HospitalReqDto hosp) 
+	{
+		Hospital h=mapper.map(hosp, Hospital.class);
+		return hospRepo.save(h);
+	}
+}
+
+
+
+--
+package com.app.service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import javax.transaction.Transactional;
+
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.app.dtos.PatientReqDto;
+import com.app.dtos.PatientRespDto;
+import com.app.dtos.PatientUpdDto;
+import com.app.entities.Hospital;
+import com.app.entities.Patient;
+import com.app.repository.HospitalRepo;
+import com.app.repository.PatientRepo;
+
+@Service
+@Transactional
+public class PatientServiceImpl implements PatientService{
+
+	@Autowired
+	private HospitalRepo prepo;
+	
+	@Autowired
+	private PatientRepo patrepo;
+	@Autowired
+	private ModelMapper mapper;
+	@Override
+	public Patient addPatient(PatientReqDto pdto) {
+	    
+		Hospital h=prepo.findByHospitalName(pdto.getHospitalName());
+		System.out.println(h);
+		//System.out.println(h.addPatient(mapper.map(pdto, Patient.class)));
+		Patient p=mapper.map(pdto, Patient.class);
+		h.addPatient(p);
+		System.out.println(p);
+		return patrepo.save(p);
+	}
+	@Override
+	public List<PatientRespDto> getAllPatients() {
+		List<PatientRespDto> dto=new ArrayList<PatientRespDto>();
+		List<Patient> list=patrepo.findAll();
+		//Patient p=list.get(0);
+		list.forEach((p)->{
+		PatientRespDto pdto=mapper.map(p, PatientRespDto.class);
+				pdto.setHospitalAdress(p.getAllocatedHospital().getHospitalAdress());
+				pdto.setHospitalName(p.getAllocatedHospital().getHospitalName());
+				pdto.setHospitalId(p.getAllocatedHospital().getId());
+				pdto.setPatientId(p.getId());
+				dto.add(pdto);
+		});
+//		list.forEach((p)->dto.add(mapper.map(p, PatientRespDto.class)));
+	//	return dto;
+				System.out.println(dto);
+		return dto;
+	}
+	@Override
+	public String upadtePatDet(PatientUpdDto uDto) {
+		
+		Patient p=patrepo.findById(uDto.getId()).orElseThrow();
+		
+		p.setMobNumber(uDto.getMobNumber());
+		p.setPatientName(uDto.getPatientName());
+		
+		patrepo.save(p);
+			
+		return "Successfully updated";
+	}
+	@Override
+	public String deletePat(Long id) {
+		System.out.println("Id is:"+id);
+		Patient p=patrepo.findById(id).orElseThrow();
+		Hospital h=prepo.findById(p.getAllocatedHospital().getId()).orElseThrow();
+		h.delPatient(p);
+		patrepo.deleteById(id);
+		return "Successfully deleted";
+	}
+
+}
+===
