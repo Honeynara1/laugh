@@ -1,0 +1,335 @@
+package com.app.entities;
+
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.MappedSuperclass;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@MappedSuperclass
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+public class BaseEntity {
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Integer id;
+}
+--
+package com.app.entities;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.persistence.CascadeType;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.OneToMany;
+import javax.persistence.Table;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreType;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Entity
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+@Table(name="author")
+@JsonIgnoreType
+public class Author extends BaseEntity {
+	
+	private String authorName;
+	private int age;
+	private String address;
+	private String email;
+	@OneToMany(mappedBy = "author",cascade = CascadeType.ALL,fetch = FetchType.EAGER)
+	private List<Books> booklist=new ArrayList<>();
+}
+--
+package com.app.entities;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
+import javax.persistence.ManyToOne;
+import javax.persistence.Table;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreType;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Entity
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@ToString
+@Table(name="book")
+
+public class Books extends BaseEntity{
+	@Column(unique=true)
+	private String Name;
+	private double price;
+	private int quantity;
+	@Enumerated(EnumType.STRING)
+	private Genre type;
+	@ManyToOne
+	private Author author;
+}
+--
+package com.app.entities;
+
+public enum Genre {
+	HORROR,FICTION,COMEDY,TRAVELOGUE,SCIFI;
+}
+==
+controller:
+package com.app.controller;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.app.dto.ApiResponce;
+import com.app.entities.Author;
+import com.app.service.AuthorService;
+
+@RestController
+@RequestMapping("/author")
+public class AuthorController {
+	@Autowired
+	private AuthorService service;
+	
+	@GetMapping("/details")
+	public List<Author> details(){
+		return service.getDetails();
+	}
+	
+	@PostMapping("/insert")
+	public String insert(@RequestBody Author b) {
+		Author addAuthor = service.addAuthor(b);
+		return "Book Inserted";
+	}
+	
+	@DeleteMapping("/delete/{id}")
+	public ApiResponce delete(@PathVariable Integer id) {
+		return new ApiResponce(service.deleteAuthor(id));
+	}
+	
+	@PutMapping("/update")
+	public Author update(@RequestBody Author b) {
+		return service.updateAuthor(b);
+	}
+}	
+--
+package com.app.controller;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.app.dto.ApiResponce;
+import com.app.entities.Books;
+import com.app.service.BookService;
+
+@RestController
+@RequestMapping("/books")
+public class BookController {
+	@Autowired
+	private BookService service;
+	
+	@GetMapping("/details")
+	public List<Books> details(){
+		return service.getDetails();
+	}
+	
+	@PostMapping("/insert")
+	public String insert(@RequestBody Books b) {
+		Books addBook = service.addBook(b);
+		return "Book Inserted";
+	}
+	
+	@DeleteMapping("/delete/{id}")
+	public ApiResponce delete(@PathVariable Integer id) {
+		return new ApiResponce(service.deleteBook(id));
+	}
+	
+	@PutMapping("/update")
+	public Books update(@RequestBody Books b) {
+		return service.updateBook(b);
+	}
+}
+===
+serv impl:
+package com.app.service;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.app.entities.Author;
+import com.app.entities.Books;
+import com.app.repository.AuthorRepository;
+
+@Service
+@Transactional
+public class AuthorServiceImpl implements AuthorService {
+	@Autowired
+	private AuthorRepository repo;
+	@Override
+	public List<Author> getDetails() {
+		
+		return repo.findAll();
+	}
+
+	@Override
+	public Author addAuthor(Author b) {
+		// TODO Auto-generated method stub
+		return repo.save(b);
+	}
+
+	@Override
+	public Author updateAuthor(Author b) {
+		// TODO Auto-generated method stub
+		return repo.save(b);
+	}
+
+	@Override
+	public String deleteAuthor(Integer id) {
+		String msg="Deletion Failed"+id;
+		if(repo.existsById(id)) {
+			repo.deleteById(id);
+			msg="Deleted Succesully"+id;
+		}
+		return msg;
+	}
+
+}
+---
+package com.app.service;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.app.entities.Books;
+import com.app.repository.BookRepository;
+@Service
+@Transactional
+public class BookServiceImpl implements BookService {
+	
+	@Autowired
+	private BookRepository repo;
+	@Override
+	public List<Books> getDetails() {
+		
+		return repo.findAll();
+	}
+	@Override
+	public Books addBook(Books b) {
+		
+		return repo.save(b);
+	}
+	@Override
+	public String deleteBook(Integer id) {
+		String msg="Deletion Failed"+id;
+		if(repo.existsById(id)) {
+			Books b=new Books();
+			repo.deleteById(id);
+			msg="Deleted Succesully"+id+" "+b.getName();
+		}
+		return msg;
+	}
+	@Override
+	public Books updateBook(Books b) {
+		
+		return repo.save(b);
+	}
+
+}
+===
+repo
+package com.app.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.app.entities.Author;
+
+public interface AuthorRepository extends JpaRepository<Author, Integer> {
+	
+	
+}
+--
+package com.app.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.app.entities.Books;
+
+public interface BookRepository extends JpaRepository<Books, Integer>{
+
+}
+==
+dto
+package com.app.dto;
+
+import java.time.LocalDateTime;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Getter
+@Setter
+@ToString
+@NoArgsConstructor
+public class ApiResponce {
+	private String message;
+	private LocalDateTime timestamp;
+	
+	public ApiResponce(String message) {
+		this.message=message;
+		timestamp=LocalDateTime.now();
+	}
+}
+==
